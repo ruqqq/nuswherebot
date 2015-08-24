@@ -17,6 +17,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -58,7 +59,9 @@ type LocationInfo struct {
 var requestCount int64
 
 // Folder to store the map cache
-var MAP_CACHE_DIR = "maps"
+const MAP_CACHE_DIR = "maps"
+
+const BOT_NICK = "@NUSWhereBot"
 
 func main() {
 	bot, err := telebot.NewBot(os.Getenv("TELEGRAM_SECRET"))
@@ -76,11 +79,11 @@ func main() {
 		if message.Text == "/help" || message.Text == "/start" {
 			bot.SendMessage(message.Chat, "Hello, "+message.Sender.FirstName+"! To get the location of a place in NUS, just type the keywords of the place you're looking for.", nil)
 		} else {
-			bot.SendMessage(message.Chat, "Searching Skynet...", nil)
-			locations, err := getLocationInfoNUS(message.Text)
-			if err != nil {
+			// Perform case insensitive search and remove bot mention in case it's a mention
+			locations, err := getLocationInfoNUS(strings.Replace(strings.ToLower(message.Text), strings.ToLower(BOT_NICK)+" ", "", 1))
+			if len(locations) != 0 && err != nil {
 				bot.SendMessage(message.Chat, "Oops! I encountered an error while searching for the location you requested. Please try again later.", nil)
-				bot.SendMessage(message.Chat, err.Error(), nil)
+				fmt.Printf("Error while retrieving location: %s\n", err.Error())
 				continue
 			}
 
@@ -90,11 +93,11 @@ func main() {
 			}
 
 			for _, location := range locations {
-				bot.SendMessage(message.Chat, "Found! Sending you the map...", nil)
+				bot.SendMessage(message.Chat, "Location found! Sending you the map...", nil)
 				photo, err := getLocationMap(location)
 				if err != nil {
 					bot.SendMessage(message.Chat, "Oops! I encountered an error while searching for the location you requested. Please try again later.", nil)
-					bot.SendMessage(message.Chat, err.Error(), nil)
+					fmt.Printf("Error while retrieving map: %s\n", err.Error())
 					continue
 				}
 
